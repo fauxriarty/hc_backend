@@ -10,7 +10,7 @@ generator client {
 model User {
   id         Int      @id @default(autoincrement())
   name       String
-  email      String? 
+  email      String?
   phoneNumber String  @unique
   isWhatsApp Boolean
   newsletter Boolean
@@ -28,7 +28,7 @@ model Have {
   category    String
   description String
   userId      Int
-  user        User   @relation(fields: [userId], references: [id])
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Wish {
@@ -36,6 +36,5 @@ model Wish {
   category    String
   description String
   userId      Int
-  user        User   @relation(fields: [userId], references: [id])
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-  

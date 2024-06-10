@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../models');
 
@@ -9,8 +8,15 @@ const getUsers = async (req, res) => {
 
 const getUser = async (req, res) => {
   const { id } = req.params;
-  const user = await prisma.user.findUnique({ 
-    where: { id: parseInt(id) }
+  if (!id) {
+    return res.status(400).json({ error: 'Missing user id' });
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: parseInt(id) },
+    include: {
+      haves: true,
+      wishes: true,
+    }
   });
   if (user) {
     res.json(user);
@@ -67,32 +73,43 @@ const getUsersByCategoryAndLocation = async (req, res) => {
 const createUser = async (req, res) => {
   try {
     const { name, email, phoneNumber, isWhatsApp, newsletter, occupation, dateOfBirth, pincode, state, city, haves, wishes } = req.body;
+
+    const dataToCreate = {
+      name,
+      email,
+      phoneNumber,
+      isWhatsApp,
+      newsletter,
+      occupation,
+      dateOfBirth,
+      pincode,
+      state,
+      city,
+    };
+
+    if (haves.length > 0 && haves[0].category && haves[0].description) {
+      dataToCreate.haves = {
+        create: haves,
+      };
+    }
+
+    if (wishes.length > 0 && wishes[0].category && wishes[0].description) {
+      dataToCreate.wishes = {
+        create: wishes,
+      };
+    }
+
     const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        phoneNumber,
-        isWhatsApp,
-        newsletter,
-        occupation,
-        dateOfBirth: new Date(dateOfBirth),
-        pincode,
-        state,
-        city,
-        haves: {
-          create: haves,
-        },
-        wishes: {
-          create: wishes,
-        },
-      },
+      data: dataToCreate,
     });
+
     res.json(user);
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const loginUser = async (req, res) => {
   const { phoneNumber, password } = req.body;
@@ -147,11 +164,56 @@ const getUsersByCategoryAndState = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+const updateUserHaves = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, description } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: {
+        haves: {
+          create: [{ category, description }],
+        },
+      },
+      include: { haves: true }, // Include haves in the response
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error updating user haves:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateUserWishes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, description } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: {
+        wishes: {
+          create: [{ category, description }],
+        },
+      },
+      include: { wishes: true }, // Include wishes in the response
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error updating user wishes:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 module.exports = {
   getUsers,
   getUser,
   updateUser,
+  updateUserWishes,
+  updateUserHaves,
   createUser,
   getUsersByCategoryAndLocation,
   loginUser,
