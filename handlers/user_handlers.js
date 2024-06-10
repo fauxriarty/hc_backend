@@ -34,6 +34,36 @@ const updateUser = async (req, res) => {
   }
 };
 
+const getUsersByCategoryAndLocation = async (req, res) => {
+  const { category, adminLocation } = req.body;
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          {
+            state: adminLocation,
+          },
+          {
+            wishes: {
+              some: {
+                category,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        wishes: true,
+      },
+    });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 const createUser = async (req, res) => {
   try {
     const { name, email, phoneNumber, isWhatsApp, newsletter, occupation, dateOfBirth, pincode, state, city, haves, wishes } = req.body;
@@ -75,10 +105,56 @@ const loginUser = async (req, res) => {
   }
 };
 
+
+const getUsersByState = async (req, res) => {
+  const { state } = req.body;
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        state: state,
+      },
+      include: {
+        haves: true,
+        wishes: true,
+      },
+    });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getUsersByCategoryAndState = async (req, res) => {
+  const { category, state } = req.body;
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        state,
+        haves: {
+          some: {
+            category,
+          }
+        }
+      },
+      include: {
+        haves: true,
+      }
+    });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getUsers,
   getUser,
   updateUser,
   createUser,
+  getUsersByCategoryAndLocation,
   loginUser,
+  getUsersByState,
+  getUsersByCategoryAndState,
 };

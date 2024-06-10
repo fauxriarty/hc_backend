@@ -4,17 +4,19 @@ const {
   getUser,
   createUser,
   loginUser,
-  updateUser
+  updateUser,
+  getUsersByState,
+  getUsersByCategoryAndState,
 } = require('../handlers/user_handlers');
-const { authenticateToken } = require('../middlewares/auth');
 
 const router = express.Router();
 
-router.get('/users', authenticateToken, getUsers);
-router.get('/users/:id', authenticateToken, getUser); // protected routes
-
+router.get('/users', getUsers);
+router.get('/users/:id', getUser);
 router.post('/users', createUser);
 router.post('/login', loginUser);
-router.put('/users/:id', authenticateToken, updateUser);
+router.put('/users/:id', updateUser);
+router.post('/admin/queryByState', getUsersByState);
+router.post('/admin/queryByCategoryAndState', getUsersByCategoryAndState);
 
 module.exports = router;
