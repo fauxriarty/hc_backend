@@ -36,7 +36,7 @@ const updateUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { name, email, phoneNumber, isWhatsApp, newsletter, occupation, address, dateOfBirth, haves, wishes } = req.body;
+    const { name, email, phoneNumber, isWhatsApp, newsletter, occupation, dateOfBirth, pincode, state, city, haves, wishes } = req.body;
     const user = await prisma.user.create({
       data: {
         name,
@@ -45,8 +45,10 @@ const createUser = async (req, res) => {
         isWhatsApp,
         newsletter,
         occupation,
-        address,
-        dateOfBirth,
+        dateOfBirth: new Date(dateOfBirth),
+        pincode,
+        state,
+        city,
         haves: {
           create: haves,
         },
@@ -65,7 +67,7 @@ const createUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { phoneNumber, password } = req.body;
   const user = await prisma.user.findUnique({ where: { phoneNumber } });
-  if (user && password === user.dateOfBirth.split('-').reverse().join('')) {
+  if (user && password === user.dateOfBirth.toISOString().split('T')[0].split('-').reverse().join('')) {
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ message: 'Login successful!', token, userId: user.id });
   } else {
@@ -80,4 +82,3 @@ module.exports = {
   createUser,
   loginUser,
 };
-  

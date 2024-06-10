@@ -9,7 +9,7 @@ const handleAdminQuery = async (req, res) => {
         haves: {
           some: {
             category: category,
-            description: {
+            description: {  
               contains: description,
             },
           },

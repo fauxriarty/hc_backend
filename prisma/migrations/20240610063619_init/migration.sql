@@ -1,15 +1,19 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "User" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT,
+    "phoneNumber" TEXT NOT NULL,
+    "isWhatsApp" BOOLEAN NOT NULL,
+    "newsletter" BOOLEAN NOT NULL,
+    "occupation" TEXT NOT NULL,
+    "pincode" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3) NOT NULL,
 
-  - You are about to drop the column `haves` on the `User` table. All the data in the column will be lost.
-  - You are about to drop the column `wishes` on the `User` table. All the data in the column will be lost.
-  - Made the column `email` on table `User` required. This step will fail if there are existing NULL values in that column.
-
-*/
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "haves",
-DROP COLUMN "wishes",
-ALTER COLUMN "email" SET NOT NULL;
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Have" (
@@ -30,6 +34,9 @@ CREATE TABLE "Wish" (
 
     CONSTRAINT "Wish_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_phoneNumber_key" ON "User"("phoneNumber");
 
 -- AddForeignKey
 ALTER TABLE "Have" ADD CONSTRAINT "Have_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
