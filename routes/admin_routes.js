@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { handleAdminQuery } = require('../handlers/admin_handlers');
+const { getUsersByCategoryAndState } = require('../handlers/admin_handlers');
 
-router.post('/admin/query', handleAdminQuery);
+router.post('/admin/queryByCategoryAndState', getUsersByCategoryAndState);
 
 module.exports = router;

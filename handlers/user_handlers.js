@@ -1,78 +1,27 @@
-const jwt = require('jsonwebtoken');
-const prisma = require('../models');
+const jwt = require("jsonwebtoken");
+const prisma = require("../models");
 
-const getUsers = async (req, res) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-};
-
-const getUser = async (req, res) => {
-  const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({ error: 'Missing user id' });
-  }
-  const user = await prisma.user.findUnique({
-    where: { id: parseInt(id) },
-    include: {
-      haves: true,
-      wishes: true,
-    }
-  });
-  if (user) {
-    res.json(user);
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
-};
-
-const updateUser = async (req, res) => {
-  const { id } = req.params;
-  const { skills } = req.body;
-  try {
-    const user = await prisma.user.update({
-      where: { id: parseInt(id) },
-      data: { skills },
-    });
-    res.json(user);
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getUsersByCategoryAndLocation = async (req, res) => {
-  const { category, adminLocation } = req.body;
-  try {
-    const users = await prisma.user.findMany({
-      where: {
-        AND: [
-          {
-            state: adminLocation,
-          },
-          {
-            wishes: {
-              some: {
-                category,
-              },
-            },
-          },
-        ],
-      },
-      include: {
-        wishes: true,
-      },
-    });
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
+require("dotenv").config();
 
 
+
+// fn to create a new user
 const createUser = async (req, res) => {
   try {
-    const { name, email, phoneNumber, isWhatsApp, newsletter, occupation, dateOfBirth, pincode, state, city, haves, wishes } = req.body;
+    const {
+      name,
+      email,
+      phoneNumber,
+      isWhatsApp,
+      newsletter,
+      occupation,
+      dateOfBirth,
+      pincode,
+      state,
+      city,
+      haves,
+      wishes,
+    } = req.body;
 
     const dataToCreate = {
       name,
@@ -103,67 +52,71 @@ const createUser = async (req, res) => {
       data: dataToCreate,
     });
 
+    console.log("User created successfully:", user);
     res.json(user);
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error("Error creating user:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
-
+// fn to login user
 const loginUser = async (req, res) => {
   const { phoneNumber, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { phoneNumber } });
-  if (user && password === user.dateOfBirth.toISOString().split('T')[0].split('-').reverse().join('')) {
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ message: 'Login successful!', token, userId: user.id });
+  try {
+    const user = await prisma.user.findUnique({ where: { phoneNumber } });
+    if (
+      user &&
+      password ===
+        user.dateOfBirth
+          .toISOString()
+          .split("T")[0]
+          .split("-")
+          .reverse()
+          .join("")
+    ) {
+      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+      console.log("Login successful for user:", user.id);
+      res.json({ message: "Login successful!", token, userId: user.id });
+    } else {
+      console.log(
+        "Invalid phone number or password for phone number:",
+        phoneNumber
+      );
+      res.status(401).json({ error: "Invalid phone number or password" });
+    }
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getUsers = async (req, res) => {
+  const users = await prisma.user.findMany();
+  res.json(users);
+};
+
+const getUser = async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ error: "Missing user id" });
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: parseInt(id) },
+    include: {
+      haves: true,
+      wishes: true,
+    },
+  });
+  if (user) {
+    res.json(user);
   } else {
-    res.status(401).json({ error: 'Invalid phone number or password' });
+    res.status(404).json({ error: "User not found" });
   }
 };
 
-
-const getUsersByState = async (req, res) => {
-  const { state } = req.body;
-  try {
-    const users = await prisma.user.findMany({
-      where: {
-        state: state,
-      },
-      include: {
-        haves: true,
-        wishes: true,
-      },
-    });
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getUsersByCategoryAndState = async (req, res) => {
-  const { category, state } = req.body;
-  try {
-    const users = await prisma.user.findMany({
-      where: {
-        state,
-        haves: {
-          some: {
-            category,
-          }
-        }
-      },
-      include: {
-        haves: true,
-      }
-    });
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
 const updateUserHaves = async (req, res) => {
   try {
     const { id } = req.params;
@@ -176,12 +129,12 @@ const updateUserHaves = async (req, res) => {
           create: [{ category, description }],
         },
       },
-      include: { haves: true }, // Include haves in the response
+      include: { haves: true },
     });
 
     res.json(user);
   } catch (error) {
-    console.error('Error updating user haves:', error);
+    console.error("Error updating user haves:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -198,12 +151,12 @@ const updateUserWishes = async (req, res) => {
           create: [{ category, description }],
         },
       },
-      include: { wishes: true }, // Include wishes in the response
+      include: { wishes: true },
     });
 
     res.json(user);
   } catch (error) {
-    console.error('Error updating user wishes:', error);
+    console.error("Error updating user wishes:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -211,12 +164,8 @@ const updateUserWishes = async (req, res) => {
 module.exports = {
   getUsers,
   getUser,
-  updateUser,
   updateUserWishes,
   updateUserHaves,
   createUser,
-  getUsersByCategoryAndLocation,
   loginUser,
-  getUsersByState,
-  getUsersByCategoryAndState,
 };
