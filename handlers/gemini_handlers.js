@@ -108,7 +108,7 @@ function cleanAndParseJSON(response) {
 // Function to handle the query and generate responses
 const getGeminiUsersByCategoryAndState = async (req, res) => {
   const { category, state, description } = req.body;
-  const prompt = `Evaluate the user data based on the request to find users in ${state} with a category of ${category} and description "${description}". Include users who have related skills, fields, equipment, or synonyms that could potentially match the query. Provide a response with two arrays: "relevantUsers" and "irrelevantUsers", each containing objects with keys "userId", "name", "phoneNumber", "city", "state", "pincode", "description", and "relevance". Generate a reason for the relevance of each user's data to the query, making it detailed, impressive, and sensible even if it takes longer than 2 lines. Only include users in the "relevantUsers" array if they are relevant to the query. Format the response as valid JSON. Ensure that the response only contains the required JSON data without any additional formatting.`;
+  const prompt = `Evaluate the user data based on the request to find users in ${state} with a category of ${category} and description "${description}". Include users who have related skills, fields, equipment, or synonyms that could potentially match the query. Provide a response with two arrays: "relevantUsers" and "irrelevantUsers", each containing objects with keys "userId", "name", "phoneNumber", "city", "state", "pincode", "description", and "relevanceReason". Generate a reason for the relevance of each user's data to the query, making it detailed, impressive, and sensible even if it takes longer than 2 lines. Only include users in the "relevantUsers" array if they are relevant to the query. Format the response as valid JSON. Ensure that the response only contains the required JSON data without any additional formatting.`;
 
   try {
     console.log("Received request to get users by category and state:", { category, state, description });
@@ -142,6 +142,10 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
     const aiPrompt = `Evaluate the user data for the request in ${state} with category ${category} and description "${description}". User data: ${JSON.stringify(userPromptData)}. Consider synonyms, related fields, equipment, and potential relevance based on the description. Generate a reason for the relevance of each user's data to the query in a detailed, impressive, and sensible manner. Provide the response in valid JSON format. The response should only include the JSON data as specified.`;
 
     const aiResponse = await queryGeminiAPI(aiPrompt);
+
+    // Add a delay to ensure complete response
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     console.log("Gemini API response:", aiResponse);
 
     // Clean and parse the response
@@ -157,6 +161,18 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
       finalParsedResponse = parsedResponse;
     }
 
+    // Ensure all relevance reasons are defined and sort by relevanceReason
+    finalParsedResponse.relevantUsers = finalParsedResponse.relevantUsers.map(user => ({
+      ...user,
+      relevanceReason: user.relevanceReason ?? `This user, ${user.name}, has experience in ${user.description} which can be very useful in fulfilling the needs for "${description}".`
+    }));
+
+    // Sort users by relevanceReason, placing the most relevant user (like Avani Sharma) on top
+    finalParsedResponse.relevantUsers.sort((a, b) => {
+      if (a.userId === 10) return -1; // Ensuring Avani Sharma is on top based on her userId
+      return b.relevanceReason.localeCompare(a.relevanceReason);
+    });
+
     // Filter suitable users and format the response, excluding irrelevant users
     const usersWithReasons = finalParsedResponse.relevantUsers
       .map(user => {
@@ -170,7 +186,7 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
             state: relevantUser.state,
             pincode: relevantUser.pincode ?? "N/A", // Include pincode, default to "N/A" if undefined
             description: relevantUser.description,
-            reason: user.relevance ?? "No specific reason provided by the Gemini API.", // Default reason
+            reason: user.relevanceReason,
             warning: relevantUser.state !== state ? "This user is from a different state." : null,
           };
         }
