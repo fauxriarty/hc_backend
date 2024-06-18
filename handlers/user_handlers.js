@@ -100,20 +100,29 @@ const getUsers = async (req, res) => {
 
 const getUser = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({ error: "Missing user id" });
+  const userId = parseInt(id, 10);
+
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user id" });
   }
-  const user = await prisma.user.findUnique({
-    where: { id: parseInt(id) },
-    include: {
-      haves: true,
-      wishes: true,
-    },
-  });
-  if (user) {
-    res.json(user);
-  } else {
-    res.status(404).json({ error: "User not found" });
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        haves: true,
+        wishes: true,
+      },
+    });
+
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ error: "User not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 

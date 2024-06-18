@@ -13,6 +13,9 @@ const parameters = {
   top_k: 50,
 };
 
+
+
+
 const cities = [
   { city: "Mumbai", state: "Maharashtra", pincodes: ["400001", "400002", "400003"] },
   { city: "Delhi", state: "Delhi", pincodes: ["110001", "110002", "110003"] },
@@ -62,7 +65,7 @@ async function queryGeminiAPI(prompt) {
     const response = await result.response;
     const text = await response.text();
     const jsonResponse = text.replace(/```json|```|\n/g, '').trim();
-    console.log(jsonResponse); 
+    console.log("JSON Response:", jsonResponse); 
 
     // Split the response into separate JSON objects
     const jsonObjects = jsonResponse.split('}{').map((json, index, array) => {
@@ -83,7 +86,6 @@ async function queryGeminiAPI(prompt) {
         throw error;
       }
     });
-
     return parsedData;
   } catch (error) {
     console.error("Error querying Gemini API:", error);
@@ -148,48 +150,53 @@ async function createUsers() {
   const generatedPhoneNumbers = new Set();
 
   while (true) {
-    const { user, have, wish } = await generateUserData();
+    try {
+      const { user, have, wish } = await generateUserData();
 
-    // Generate unique phone number
-    let phoneNumber;
-    do {
-      phoneNumber = generatePhoneNumber();
-    } while (generatedPhoneNumbers.has(phoneNumber));
+      // Generate unique phone number
+      let phoneNumber;
+      do {
+        phoneNumber = generatePhoneNumber();
+      } while (generatedPhoneNumbers.has(phoneNumber));
 
-    generatedPhoneNumbers.add(phoneNumber);
+      generatedPhoneNumbers.add(phoneNumber);
 
-    // Get random city and corresponding state and pincode
-    const { city, state, pincodes } = getRandomCity();
-    const pincode = pincodes[Math.floor(Math.random() * pincodes.length)];
+      // Get random city and corresponding state and pincode
+      const { city, state, pincodes } = getRandomCity();
+      const pincode = pincodes[Math.floor(Math.random() * pincodes.length)];
 
-    await prisma.user.create({
-      data: {
-        name: user.name,
-        phoneNumber: phoneNumber,
-        isWhatsApp: true,
-        newsletter: true,
-        occupation: user.occupation,
-        pincode: pincode,
-        city: city,
-        state: state,
-        dateOfBirth: new Date(user.dateOfBirth),
-        haves: {
-          create: {
-            category: have.category,
-            description: have.description,
+      await prisma.user.create({
+        data: {
+          name: user.name,
+          phoneNumber: phoneNumber,
+          isWhatsApp: true,
+          newsletter: true,
+          occupation: user.occupation,
+          pincode: pincode,
+          city: city,
+          state: state,
+          dateOfBirth: new Date(user.dateOfBirth),
+          haves: {
+            create: {
+              category: have.category,
+              description: have.description,
+            },
+          },
+          wishes: {
+            create: {
+              category: wish.category,
+              description: wish.description,
+            },
           },
         },
-        wishes: {
-          create: {
-            category: wish.category,
-            description: wish.description,
-          },
-        },
-      },
-    });
+      });
 
-    console.log(`Created user: ${user.name} with phone number ${phoneNumber}`);
-    await new Promise(resolve => setTimeout(resolve, 5000)); 
+      console.log(`Created user: ${user.name} with phone number ${phoneNumber}`);
+      await new Promise(resolve => setTimeout(resolve, 30000)); // Delay of 30 seconds
+    } catch (error) {
+      console.error("Error creating user:", error);
+      await new Promise(resolve => setTimeout(resolve, 30000)); // Delay of 30 seconds even after an error
+    }
   }
 }
 
