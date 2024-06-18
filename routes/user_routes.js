@@ -3,10 +3,10 @@ const {
   getUsers,
   getUser,
   createUser,
+  deleteUserHave,
+  deleteUserWish,
+
   loginUser,
-  updateUser,
-  getUsersByState,
-  getUsersByCategoryAndState,
   updateUserHaves,
   updateUserWishes,
 } = require('../handlers/user_handlers');
@@ -19,5 +19,7 @@ router.post('/users', createUser);
 router.post('/login', loginUser);
 router.put('/users/:id/haves', updateUserHaves); 
 router.put('/users/:id/wishes', updateUserWishes);
+router.delete('/users/:id/haves/:haveId', deleteUserHave);
+router.delete('/users/:id/wishes/:wishId', deleteUserWish);
 
 module.exports = router;

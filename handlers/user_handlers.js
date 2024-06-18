@@ -170,11 +170,56 @@ const updateUserWishes = async (req, res) => {
   }
 };
 
+const deleteUserHave = async (req, res) => {
+  try {
+    const { id, haveId } = req.params;
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: {
+        haves: {
+          delete: [{ id: parseInt(haveId) }],
+        },
+      },
+      include: { haves: true },
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error deleting user have:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const deleteUserWish = async (req, res) => {
+  try {
+    const { id, wishId } = req.params;
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: {
+        wishes: {
+          delete: [{ id: parseInt(wishId) }],
+        },
+      },
+      include: { wishes: true },
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error deleting user wish:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   getUsers,
   getUser,
   updateUserWishes,
   updateUserHaves,
   createUser,
+  deleteUserHave,
+  deleteUserWish,
   loginUser,
 };

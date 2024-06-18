@@ -11,7 +11,7 @@ const parameters = {
   top_k: 50,
 };
 
-// Function to query the Gemini API
+// fn to query the gemini
 async function queryGeminiAPI(prompt) {
   try {
     console.log("Connecting to Gemini API...");
@@ -27,7 +27,7 @@ async function queryGeminiAPI(prompt) {
   }
 }
 
-// Function to fetch users from the database
+// fn to fetch users from the database
 async function fetchUsersFromDatabase(state, category, description) {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -58,7 +58,7 @@ async function fetchUsersFromDatabase(state, category, description) {
   }
 }
 
-// Function to fetch all 'Have' entries
+// fn to fetch all 'Have' entries if no relevant user found within given state and category
 async function fetchAllHaves() {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -86,13 +86,12 @@ async function fetchAllHaves() {
   }
 }
 
-// Function to clean and validate JSON response
 function cleanAndParseJSON(response) {
   try {
-    // Remove non-JSON characters
+    // remove non json characters
     let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
 
-    // Ensure the response ends with a closing bracket if it appears to be cut off
+    // ensure response ends with a closing bracket if it appears to be cut off
     if (!cleanResponse.endsWith(']')) {
       const lastValidIndex = cleanResponse.lastIndexOf('}');
       cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
@@ -105,10 +104,9 @@ function cleanAndParseJSON(response) {
   }
 }
 
-// Function to handle the query and generate responses
+// fn to handle the query and generate responses
 const getGeminiUsersByCategoryAndState = async (req, res) => {
   const { category, state, description } = req.body;
-  const prompt = `Evaluate the user data based on the request to find users in ${state} with a category of ${category} and description "${description}". Include users who have related skills, fields, equipment, or synonyms that could potentially match the query. Provide a response with two arrays: "relevantUsers" and "irrelevantUsers", each containing objects with keys "userId", "name", "phoneNumber", "city", "state", "pincode", "description", and "relevanceReason". Generate a reason for the relevance of each user's data to the query, making it detailed, impressive, and sensible even if it takes longer than 2 lines. Only include users in the "relevantUsers" array if they are relevant to the query. Format the response as valid JSON. Ensure that the response only contains the required JSON data without any additional formatting.`;
 
   try {
     console.log("Received request to get users by category and state:", { category, state, description });
@@ -141,40 +139,42 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
 
     const aiPrompt = `Evaluate the user data for the request in ${state} with category ${category} and description "${description}". User data: ${JSON.stringify(userPromptData)}. Consider synonyms, related fields, equipment, and potential relevance based on the description. Generate a reason for the relevance of each user's data to the query in a detailed, impressive, and sensible manner. Provide the response in valid JSON format. The response should only include the JSON data as specified.`;
 
-    const aiResponse = await queryGeminiAPI(aiPrompt);
+    let aiResponse;
+    try {
+      aiResponse = await queryGeminiAPI(aiPrompt);
+    } catch (error) {
+      console.error("Error querying Gemini API:", error);
+      res.status(500).json({ error: "Error querying Gemini API." });
+      return;
+    }
 
-    // Add a delay to ensure complete response
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // add a delay to ensure complete response
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     console.log("Gemini API response:", aiResponse);
 
-    // Clean and parse the response
     const parsedResponse = cleanAndParseJSON(aiResponse);
 
-    // Ensure response is an object and contains 'relevantUsers'
-    let finalParsedResponse;
-    if (Array.isArray(parsedResponse)) {
-      finalParsedResponse = { relevantUsers: parsedResponse, irrelevantUsers: [] };
-    } else if (!parsedResponse.relevantUsers || !Array.isArray(parsedResponse.relevantUsers)) {
-      throw new Error("Invalid JSON structure: 'relevantUsers' key not found or is not an array.");
-    } else {
-      finalParsedResponse = parsedResponse;
+    // ensure response is an object and contains 'relevantUsers'
+    if (!parsedResponse.relevantUsers || !Array.isArray(parsedResponse.relevantUsers)) {
+      console.error("Invalid JSON structure: 'relevantUsers' key not found or is not an array.");
+      res.status(500).json({ error: "Invalid JSON structure from Gemini API." });
+      return;
     }
 
-    // Ensure all relevance reasons are defined and sort by relevanceReason
-    finalParsedResponse.relevantUsers = finalParsedResponse.relevantUsers.map(user => ({
+    // ensure all relevance reasons are defined and sort by relevanceReason
+    parsedResponse.relevantUsers = parsedResponse.relevantUsers.map(user => ({
       ...user,
       relevanceReason: user.relevanceReason ?? `This user, ${user.name}, has experience in ${user.description} which can be very useful in fulfilling the needs for "${description}".`
     }));
 
-    // Sort users by relevanceReason, placing the most relevant user (like Avani Sharma) on top
-    finalParsedResponse.relevantUsers.sort((a, b) => {
-      if (a.userId === 10) return -1; // Ensuring Avani Sharma is on top based on her userId
+    // sort users by relevanceReason, placing the most relevant user on top
+    parsedResponse.relevantUsers.sort((a, b) => {
       return b.relevanceReason.localeCompare(a.relevanceReason);
     });
 
-    // Filter suitable users and format the response, excluding irrelevant users
-    const usersWithReasons = finalParsedResponse.relevantUsers
+    // filter suitable users and format the response, excluding irrelevant users
+    const usersWithReasons = parsedResponse.relevantUsers
       .map(user => {
         const relevantUser = users.find(u => u.id === user.userId);
         if (relevantUser) {
@@ -184,7 +184,7 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
             phoneNumber: relevantUser.phoneNumber,
             city: relevantUser.city,
             state: relevantUser.state,
-            pincode: relevantUser.pincode ?? "N/A", // Include pincode, default to "N/A" if undefined
+            pincode: relevantUser.pincode ?? "N/A",
             description: relevantUser.description,
             reason: user.relevanceReason,
             warning: relevantUser.state !== state ? "This user is from a different state." : null,
