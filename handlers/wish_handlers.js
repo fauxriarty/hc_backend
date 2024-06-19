@@ -2,7 +2,11 @@ const prisma = require("../models");
 
 const getAllWishes = async (req, res) => {
   try {
-    const wishes = await prisma.wish.findMany();
+    const wishes = await prisma.wish.findMany({
+      include: {
+        user: true,
+      },
+    });
     res.json(wishes);
   } catch (error) {
     console.error("Error fetching wishes:", error);
