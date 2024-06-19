@@ -8,6 +8,7 @@ const {
   updateUserWishes,
   removeUserHave,
   removeUserWish,
+  updateWishSkills,
 } = require("../handlers/user_handlers");
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.put("/:id/haves", updateUserHaves);
 router.put("/:id/wishes", updateUserWishes);
 router.delete("/:id/haves/:haveId", removeUserHave);
 router.delete("/:id/wishes/:wishId", removeUserWish);
+router.put("/:userId/wishes/:wishId/skills", updateWishSkills);
+
 
 module.exports = router;

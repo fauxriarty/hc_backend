@@ -210,13 +210,55 @@ const removeUserWish = async (req, res) => {
   }
 };
 
+
+const updateWishSkills = async (req, res) => {
+  const { userId, wishId } = req.params;
+  const { skill, action } = req.body;
+
+  try {
+    const wish = await prisma.wish.findUnique({
+      where: { id: parseInt(wishId) },
+    });
+
+    if (!wish) {
+      return res.status(404).json({ error: "Wish not found" });
+    }
+
+    let updatedSkills = wish.skills || [];
+    if (action === "add") {
+      updatedSkills = [...updatedSkills, skill];
+    } else if (action === "remove") {
+      updatedSkills = updatedSkills.filter((s) => s !== skill);
+    }
+
+    await prisma.wish.update({
+      where: { id: parseInt(wishId) },
+      data: {
+        skills: updatedSkills,
+      },
+    });
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+      include: { wishes: true },
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error(`Error updating wish skills:`, error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   getUsers,
   getUser,
-  updateUserWishes,
-  updateUserHaves,
   createUser,
   loginUser,
+  updateUserHaves,
+  updateUserWishes,
   removeUserHave,
   removeUserWish,
+  updateWishSkills,  
 };
