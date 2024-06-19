@@ -3,6 +3,7 @@ const cors = require('cors');
 const userRoutes = require('./routes/user_routes');
 const adminRoutes = require('./routes/admin_routes');
 const geminiRoutes = require('./routes/gemini_routes'); 
+const wishRoutes = require('./routes/wish_routes');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
@@ -11,7 +12,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/', userRoutes);
+app.use("/", userRoutes);
+app.use("/wishes", wishRoutes);
 app.use('/', adminRoutes);
 app.use('/', geminiRoutes);
 

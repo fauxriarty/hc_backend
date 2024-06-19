@@ -3,8 +3,6 @@ const prisma = require("../models");
 
 require("dotenv").config();
 
-
-
 // fn to create a new user
 const createUser = async (req, res) => {
   try {
@@ -34,26 +32,26 @@ const createUser = async (req, res) => {
       pincode,
       state,
       city,
-    };
-
-    if (haves.length > 0 && haves[0].category && haves[0].description) {
-      dataToCreate.haves = {
+      haves: {
         create: haves,
-      };
-    }
-
-    if (wishes.length > 0 && wishes[0].category && wishes[0].description) {
-      dataToCreate.wishes = {
-        create: wishes,
-      };
-    }
+      },
+      wishes: {
+        create: wishes.map(wish => ({
+          ...wish,
+          skills: { set: wish.skills },
+        })),
+      },
+    };
 
     const user = await prisma.user.create({
       data: dataToCreate,
     });
 
-    console.log("User created successfully:", user);
-    res.json(user);
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.json({ user, token });
   } catch (error) {
     console.error("Error creating user:", error);
     res.status(500).json({ error: error.message });
@@ -151,13 +149,13 @@ const updateUserHaves = async (req, res) => {
 const updateUserWishes = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, description } = req.body;
+    const { category, description, skills } = req.body;
 
     const user = await prisma.user.update({
       where: { id: parseInt(id) },
       data: {
         wishes: {
-          create: [{ category, description }],
+          create: [{ category, description, skills }],
         },
       },
       include: { wishes: true },
@@ -170,7 +168,7 @@ const updateUserWishes = async (req, res) => {
   }
 };
 
-const deleteUserHave = async (req, res) => {
+const removeUserHave = async (req, res) => {
   try {
     const { id, haveId } = req.params;
 
@@ -186,12 +184,12 @@ const deleteUserHave = async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error("Error deleting user have:", error);
+    console.error("Error removing user have:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
-const deleteUserWish = async (req, res) => {
+const removeUserWish = async (req, res) => {
   try {
     const { id, wishId } = req.params;
 
@@ -207,11 +205,10 @@ const deleteUserWish = async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error("Error deleting user wish:", error);
+    console.error("Error removing user wish:", error);
     res.status(500).json({ error: error.message });
   }
 };
-
 
 module.exports = {
   getUsers,
@@ -219,7 +216,7 @@ module.exports = {
   updateUserWishes,
   updateUserHaves,
   createUser,
-  deleteUserHave,
-  deleteUserWish,
   loginUser,
+  removeUserHave,
+  removeUserWish,
 };

@@ -8,33 +8,34 @@ generator client {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  name       String
-  email      String?
-  phoneNumber String  @unique
-  isWhatsApp Boolean
-  newsletter Boolean
-  occupation String
-  pincode    String
-  city       String
-  state      String
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String?
+  phoneNumber String    @unique
+  isWhatsApp  Boolean   @default(false)
+  newsletter  Boolean   @default(false)
+  occupation  String?
   dateOfBirth DateTime
-  haves      Have[]
-  wishes     Wish[]
+  pincode     String
+  state       String
+  city        String
+  haves       Have[]
+  wishes      Wish[]
 }
 
 model Have {
-  id          Int    @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   category    String
   description String
   userId      Int
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
 }
 
 model Wish {
-  id          Int    @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   category    String
   description String
+  skills      String[]
   userId      Int
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
 }
