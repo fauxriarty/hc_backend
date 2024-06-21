@@ -1,20 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { json } = require('body-parser');
 require("dotenv").config();
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
-  temperature: 0.95,
-  max_output_tokens: 64,
+  temperature: 1.5,
+  max_output_tokens: 256,
   top_p: 0.95,
   top_k: 50,
 };
-
-
-
 
 const cities = [
   { city: "Mumbai", state: "Maharashtra", pincodes: ["400001", "400002", "400003"] },
@@ -86,7 +82,7 @@ async function queryGeminiAPI(prompt) {
         throw error;
       }
     });
-    return parsedData;
+    return parsedData[0]; 
   } catch (error) {
     console.error("Error querying Gemini API:", error);
     throw error;
@@ -96,8 +92,8 @@ async function queryGeminiAPI(prompt) {
 async function generateUserData() {
   const userPrompt = `
     Generate a unique and realistic user profile for a social platform.
-    Each profile should have a unique indian name, city, state, occupation, and date of birth.
-    Ensure that the names generated are different each time.
+    Each profile should have a new name male or female from different countries all countries try a random western and indian country and state each time at random asian western all make sure they're unique both first and last name and havent been generated previously, thousands of different names so maybe just go for names of different famous actors characters directors from shows and movies all over the globe that also works. but different each time randomly, city, state, occupation, and date of birth.
+    Ensure that the names generated are different each time, and don't use emojis use only characters that wont throw an error for JSON parsing.
     Return the response in the following JSON format:
     {
       "name": "Rahul Kumar",
@@ -109,8 +105,9 @@ async function generateUserData() {
   `;
   const havePrompt = `
     Generate a unique and realistic 'have' entry for a social platform.
+     don't use emojis use only characters that wont throw an error for JSON parsing.
     Each entry should include a category from the following list: ${sdgs.join(", ")} and a unique description.
-    The descriptions should be diverse and vary in language, style, and tone. some can be sounding more like good samaritan offers as well
+    The descriptions should be diverse and vary in language, style, and tone. Some can sound more like good samaritan offers as well.
     Return the response in the following JSON format:
     {
       "category": "Skill Development",
@@ -118,15 +115,18 @@ async function generateUserData() {
     }
   `;
   const wishPrompt = `
-    Generate a unique and realistic 'wish' entry for a social platform.
-    Each entry should include a category from the following list: ${sdgs.join(", ")} and a unique description.
-    The descriptions should be diverse and vary in language, style, and tone. while being simple
-    Return the response in the following JSON format:
-    {
-      "category": "Primary Education",
-      "description": "Looking for someone to teach basic programming."
-    }
-  `;
+  Generate a unique and realistic 'wish' entry for a social platform.
+   don't use emojis use only characters that wont throw an error for JSON parsing.
+  Each entry should include a category from the following list: ${sdgs.join(", ")} and a unique description.
+  The descriptions should be diverse and vary in language, style, and tone while being simple.
+  Also, generate a list of skills that would be required to fulfill the wish.
+  Return the response in the following JSON format:
+  {
+    "category": "Primary Education",
+    "description": "Looking for someone to teach basic programming.",
+    "skills": ["programming", "teaching", "communication"]
+  }
+`;
 
   let userData, haveData, wishData;
 
@@ -186,6 +186,7 @@ async function createUsers() {
             create: {
               category: wish.category,
               description: wish.description,
+              skills: wish.skills,
             },
           },
         },
@@ -201,8 +202,40 @@ async function createUsers() {
 }
 
 function sanitizeJSON(input) {
-    // replace non-standard characters, such as emojis
+    // Ensure the input starts with '{' and ends with '}'
+    if (!input.startsWith('{')) {
+        input = '{' + input;
+    }
+    if (!input.endsWith('}')) {
+        input = input + '}';
+    }
+
+    // Count the number of opening '{' and closing '}' braces
+    let openBraces = (input.match(/{/g) || []).length;
+    let closeBraces = (input.match(/}/g) || []).length;
+
+    // Remove extra closing braces
+    while (closeBraces > openBraces) {
+        input = input.substring(0, input.lastIndexOf('}')) + input.substring(input.lastIndexOf('}') + 1);
+        closeBraces--;
+    }
+
+    // Add missing closing braces
+    while (openBraces > closeBraces) {
+        input = input + '}';
+        closeBraces++;
+    }
+
+    // Check if the JSON string is cut off
+    let lastQuote = input.lastIndexOf('"');
+    if (lastQuote % 2 === 0) {
+        // The JSON string is cut off, add a closing quote and braces
+        input = input.substring(0, lastQuote + 1) + '}';
+    }
+
+    // Replace non-standard characters, such as emojis
     let sanitized = input.replace(/[\u0800-\uFFFF]/g, "");
+
     return sanitized;
 }
 

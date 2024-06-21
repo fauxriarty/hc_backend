@@ -4,7 +4,6 @@ const userRoutes = require('./routes/user_routes');
 const adminRoutes = require('./routes/admin_routes');
 const geminiRoutes = require('./routes/gemini_routes'); 
 const wishRoutes = require('./routes/wish_routes');
-const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
 const app = express();

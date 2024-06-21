@@ -5,8 +5,8 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
-  temperature: 0.9,
-  max_output_tokens: 300,
+  temperature: 0.7,
+  max_output_tokens: 512,
   top_p: 0.9,
   top_k: 50,
 };
@@ -26,7 +26,6 @@ async function queryGeminiAPI(prompt) {
     throw error;
   }
 }
-
 // fn to fetch users from the database
 async function fetchUsersFromDatabase(state, category, description) {
   const client = new Client({
@@ -83,24 +82,6 @@ async function fetchAllHaves() {
   } finally {
     await client.end();
     console.log("Database connection closed");
-  }
-}
-
-function cleanAndParseJSON(response) {
-  try {
-    // remove non json characters
-    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
-
-    // ensure response ends with a closing bracket if it appears to be cut off
-    if (!cleanResponse.endsWith(']')) {
-      const lastValidIndex = cleanResponse.lastIndexOf('}');
-      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
-    }
-
-    return JSON.parse(cleanResponse);
-  } catch (error) {
-    console.error("Error cleaning and parsing JSON:", error);
-    throw new Error("Invalid JSON response from Gemini API");
   }
 }
 
@@ -201,6 +182,61 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
   }
 };
 
+function cleanAndParseJSON(response) {
+  try {
+    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
+
+    if (!cleanResponse.endsWith(']')) {
+      const lastValidIndex = cleanResponse.lastIndexOf('}');
+      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
+    }
+
+    return JSON.parse(cleanResponse);
+  } catch (error) {
+    console.error("Error cleaning and parsing JSON:", error);
+    throw new Error("Invalid JSON response from Gemini API");
+  }
+}
+
+const fetchRelevantWishes = async (userHaves, allWishes) => {
+  try {
+    const aiPrompt = `Evaluate the user's skills against the wishes descriptions and determine relevance. User skills: ${JSON.stringify(userHaves)}. Wishes data: ${JSON.stringify(allWishes)}. Consider categories, related fields, and detailed explanations for relevance. Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}].`;
+
+    let aiResponse;
+    try {
+      aiResponse = await queryGeminiAPI(aiPrompt);
+    } catch (error) {
+      console.error("Error querying Gemini API:", error);
+      throw new Error("Error querying Gemini API");
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    console.log("Gemini API response:", aiResponse);
+
+    const parsedResponse = cleanAndParseJSON(aiResponse);
+
+    if (!Array.isArray(parsedResponse)) {
+      console.error("Invalid JSON structure: expected an array.");
+      throw new Error("Invalid JSON structure from Gemini API");
+    }
+
+    const relevantWishes = parsedResponse
+      .filter(wish => wish.relevance !== "Not relevant")
+      .map(wish => {
+        const matchedWish = allWishes.find(w => w.id === wish.wishId);
+        return { ...matchedWish, relevance: wish.relevance };
+      });
+
+    console.log("Relevant wishes:", relevantWishes.map(wish => wish.title));
+    return relevantWishes.length > 0 ? relevantWishes : allWishes;
+  } catch (error) {
+    console.error("Error fetching relevant wishes:", error);
+    throw new Error(error.message);
+  }
+};
+
 module.exports = {
   getGeminiUsersByCategoryAndState,
+  fetchRelevantWishes,
 };
