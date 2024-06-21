@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
   temperature: 0.7,
-  max_output_tokens: 512,
+  max_output_tokens: 2048,
   top_p: 0.9,
   top_k: 50,
 };
@@ -198,9 +198,30 @@ function cleanAndParseJSON(response) {
   }
 }
 
+function cleanAndParseJSON(response) {
+  try {
+    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
+
+    if (!cleanResponse.endsWith(']')) {
+      const lastValidIndex = cleanResponse.lastIndexOf('}');
+      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
+    }
+
+    return JSON.parse(cleanResponse);
+  } catch (error) {
+    console.error("Error cleaning and parsing JSON:", error);
+    throw new Error("Invalid JSON response from Gemini API");
+  }
+}
+
 const fetchRelevantWishes = async (userHaves, allWishes) => {
   try {
-    const aiPrompt = `Evaluate the user's skills against the wishes descriptions and determine relevance. User skills: ${JSON.stringify(userHaves)}. Wishes data: ${JSON.stringify(allWishes)}. Consider categories, related fields, and detailed explanations for relevance. Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}].`;
+    const aiPrompt = `Evaluate the user's technical skills against the wishes descriptions and determine relevance. 
+                      User technical skills: ${JSON.stringify(userHaves)}. 
+                      Wishes data: ${JSON.stringify(allWishes)}. 
+                      Consider categories, related technical fields, and provide detailed explanations for relevance. 
+                      Filter out any wishes that are not related to the user's skills, dont make the association too broad just grammatically and word meaning wise flexible. 
+                      Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}].`;
 
     let aiResponse;
     try {
@@ -222,14 +243,14 @@ const fetchRelevantWishes = async (userHaves, allWishes) => {
     }
 
     const relevantWishes = parsedResponse
-      .filter(wish => wish.relevance !== "Not relevant")
+      .filter(wish => wish.relevance && wish.relevance.toLowerCase().includes('relevant'))
       .map(wish => {
         const matchedWish = allWishes.find(w => w.id === wish.wishId);
         return { ...matchedWish, relevance: wish.relevance };
       });
 
     console.log("Relevant wishes:", relevantWishes.map(wish => wish.title));
-    return relevantWishes.length > 0 ? relevantWishes : allWishes;
+    return relevantWishes.length > 0 ? relevantWishes : [];
   } catch (error) {
     console.error("Error fetching relevant wishes:", error);
     throw new Error(error.message);
