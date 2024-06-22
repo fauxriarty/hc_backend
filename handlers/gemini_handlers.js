@@ -5,10 +5,10 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
-  temperature: 0.7,
-  max_output_tokens: 2048,
-  top_p: 0.9,
-  top_k: 50,
+  temperature: 0.6,
+  max_output_tokens: 4096,
+  top_p: 0.82,
+  top_k: 30,
 };
 
 // fn to query the gemini
@@ -26,6 +26,7 @@ async function queryGeminiAPI(prompt) {
     throw error;
   }
 }
+
 // fn to fetch users from the database
 async function fetchUsersFromDatabase(state, category, description) {
   const client = new Client({
@@ -198,30 +199,15 @@ function cleanAndParseJSON(response) {
   }
 }
 
-function cleanAndParseJSON(response) {
-  try {
-    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
-
-    if (!cleanResponse.endsWith(']')) {
-      const lastValidIndex = cleanResponse.lastIndexOf('}');
-      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
-    }
-
-    return JSON.parse(cleanResponse);
-  } catch (error) {
-    console.error("Error cleaning and parsing JSON:", error);
-    throw new Error("Invalid JSON response from Gemini API");
-  }
-}
-
 const fetchRelevantWishes = async (userHaves, allWishes) => {
   try {
-    const aiPrompt = `Evaluate the user's technical skills against the wishes descriptions and determine relevance. 
-                      User technical skills: ${JSON.stringify(userHaves)}. 
+    const aiPrompt = `Evaluate the user's skills against the wishes descriptions and determine strict relevance. 
+                      User skills: ${JSON.stringify(userHaves)}. 
                       Wishes data: ${JSON.stringify(allWishes)}. 
-                      Consider categories, related technical fields, and provide detailed explanations for relevance. 
-                      Filter out any wishes that are not related to the user's skills, dont make the association too broad just grammatically and word meaning wise flexible. 
-                      Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}].`;
+                      Consider only directly related fields and provide clear, specific explanations for relevance. 
+                      Filter out any wishes that are not directly related to the user's skills or are too broad or stretched. 
+                      Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}]. 
+                      Ensure that the relevance reasons are directly related to the user's skills and not a stretch.`;
 
     let aiResponse;
     try {
@@ -233,8 +219,6 @@ const fetchRelevantWishes = async (userHaves, allWishes) => {
 
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    console.log("Gemini API response:", aiResponse);
-
     const parsedResponse = cleanAndParseJSON(aiResponse);
 
     if (!Array.isArray(parsedResponse)) {
@@ -243,11 +227,12 @@ const fetchRelevantWishes = async (userHaves, allWishes) => {
     }
 
     const relevantWishes = parsedResponse
-      .filter(wish => wish.relevance && wish.relevance.toLowerCase().includes('relevant'))
+      .filter(wish => wish.relevance && wish.relevance.toLowerCase().includes('relevant') && !wish.relevance.toLowerCase().includes('stretch'))
       .map(wish => {
         const matchedWish = allWishes.find(w => w.id === wish.wishId);
-        return { ...matchedWish, relevance: wish.relevance };
-      });
+        return matchedWish ? { ...matchedWish, relevance: wish.relevance } : null;
+      })
+      .filter(Boolean);
 
     console.log("Relevant wishes:", relevantWishes.map(wish => wish.title));
     return relevantWishes.length > 0 ? relevantWishes : [];
