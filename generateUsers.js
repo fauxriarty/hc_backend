@@ -6,8 +6,8 @@ const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
-  temperature: 1.5,
-  max_output_tokens: 256,
+  temperature: 1.8,
+  max_output_tokens: 128,
   top_p: 0.95,
   top_k: 50,
 };
@@ -61,7 +61,7 @@ async function queryGeminiAPI(prompt) {
     const response = await result.response;
     const text = await response.text();
     const jsonResponse = text.replace(/```json|```|\n/g, '').trim();
-    console.log("JSON Response:", jsonResponse); 
+    console.log("JSON Response:", jsonResponse);
 
     // Split the response into separate JSON objects
     const jsonObjects = jsonResponse.split('}{').map((json, index, array) => {
@@ -82,18 +82,72 @@ async function queryGeminiAPI(prompt) {
         throw error;
       }
     });
-    return parsedData[0]; 
+    return parsedData[0];
   } catch (error) {
     console.error("Error querying Gemini API:", error);
     throw error;
   }
 }
 
+async function generateUniqueUser(userPrompt) {
+  let userData;
+  for (let i = 0; i < 5; i++) {
+    try {
+      userData = await queryGeminiAPI(userPrompt);
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          name: userData.name,
+          dateOfBirth: new Date(userData.dateOfBirth),
+        },
+      });
+      if (!existingUser) break; // Unique user found
+    } catch (error) {
+      console.error(`Error generating user data on attempt ${i + 1}:`, error);
+      if (i === 4) throw new Error("Failed to generate a unique user name after multiple attempts.");
+    }
+  }
+  return userData;
+}
+
+async function generateUniqueHave(havePrompt) {
+  let haveData;
+  for (let i = 0; i < 5; i++) {
+    try {
+      haveData = await queryGeminiAPI(havePrompt);
+      const existingHave = await prisma.have.findFirst({
+        where: { description: haveData.description },
+      });
+      if (!existingHave) break; // Unique have found
+    } catch (error) {
+      console.error(`Error generating have data on attempt ${i + 1}:`, error);
+      if (i === 4) throw new Error("Failed to generate a unique have entry after multiple attempts.");
+    }
+  }
+  return haveData;
+}
+
+async function generateUniqueWish(wishPrompt) {
+  let wishData;
+  for (let i = 0; i < 5; i++) {
+    try {
+      wishData = await queryGeminiAPI(wishPrompt);
+      const existingWish = await prisma.wish.findFirst({
+        where: { description: wishData.description },
+      });
+      if (!existingWish) break; // Unique wish found
+    } catch (error) {
+      console.error(`Error generating wish data on attempt ${i + 1}:`, error);
+      if (i === 4) throw new Error("Failed to generate a unique wish entry after multiple attempts.");
+    }
+  }
+  return wishData;
+}
+
 async function generateUserData() {
   const userPrompt = `
-    Generate a unique and realistic user profile for a social platform.
-    Each profile should have a new name male or female from different countries all countries try a random western and indian country and state each time at random asian western all make sure they're unique both first and last name and havent been generated previously, thousands of different names so maybe just go for names of different famous actors characters directors from shows and movies all over the globe that also works. but different each time randomly, city, state, occupation, and date of birth.
-    Ensure that the names generated are different each time, and don't use emojis use only characters that wont throw an error for JSON parsing.
+    Generate a unique and realistic user for a social platform. dont give unnecessary extra feedback response just give what asked directly no extra unnecessary characters
+    Each should have a new name male or female completely new and random, go for names of different famous actors characters directors from TV shows and movies all over India and USA random each time pick a random year and random movie or show from that year and random character or actor from there. and in their style fill rest of details. but random different each time randomly, city, state, occupation, and date of birth.
+    Don't use emojis use only characters that wont throw an error for JSON parsing.
     Return the response in the following JSON format:
     {
       "name": "Rahul Kumar",
@@ -104,23 +158,23 @@ async function generateUserData() {
     }
   `;
   const havePrompt = `
-    Generate a unique and realistic 'have' entry for a social platform.
-     don't use emojis use only characters that wont throw an error for JSON parsing.
+    Generate a unique and realistic 'have' entry for a social platform. dont give unnecessary extra feedback response just give what asked directly no extra unnecessary characters
+    Don't use emojis use only characters that wont throw an error for JSON parsing.
     Each entry should include a category from the following list: ${sdgs.join(", ")} and a unique description.
-    The descriptions should be diverse and vary in language, style, and tone. Some can sound more like good samaritan offers as well.
-    Return the response in the following JSON format:
+    The descriptions should be diverse and vary in language, style, and tone. Some can sound more like good samaritan offers as well since this is for a rural development project.
+    Return the response in the following JSON format ONLY STRICTLY keep it simple and of similar types of responses:
     {
       "category": "Skill Development",
       "description": "Expert in web development and programming."
     }
   `;
   const wishPrompt = `
-  Generate a unique and realistic 'wish' entry for a social platform.
-   don't use emojis use only characters that wont throw an error for JSON parsing.
+  Generate a unique and realistic 'wish' entry for a social platform. dont give unnecessary extra feedback response just give what asked directly no extra unnecessary characters
+  Don't use emojis use only characters that wont throw an error for JSON parsing.
   Each entry should include a category from the following list: ${sdgs.join(", ")} and a unique description.
-  The descriptions should be diverse and vary in language, style, and tone while being simple.
+  The descriptions should be diverse and vary in language, style, and tone while being simple, should be something that people of rural areas can contribute to as well.
   Also, generate a list of skills that would be required to fulfill the wish.
-  Return the response in the following JSON format:
+  Return the response in the following JSON format similarly phrased and kept simple:
   {
     "category": "Primary Education",
     "description": "Looking for someone to teach basic programming.",
@@ -128,20 +182,9 @@ async function generateUserData() {
   }
 `;
 
-  let userData, haveData, wishData;
-
-  // Retry mechanism for fetching valid JSON data
-  for (let i = 0; i < 3; i++) {
-    try {
-      userData = await queryGeminiAPI(userPrompt);
-      haveData = await queryGeminiAPI(havePrompt);
-      wishData = await queryGeminiAPI(wishPrompt);
-      break; // If no error, break out of the loop
-    } catch (error) {
-      console.error(`Error generating data on attempt ${i + 1}:`, error);
-      if (i === 2) throw new Error("Failed to generate valid user data after multiple attempts.");
-    }
-  }
+  const userData = await generateUniqueUser(userPrompt);
+  const haveData = await generateUniqueHave(havePrompt);
+  const wishData = await generateUniqueWish(wishPrompt);
 
   return { user: userData, have: haveData, wish: wishData };
 }
@@ -193,50 +236,46 @@ async function createUsers() {
       });
 
       console.log(`Created user: ${user.name} with phone number ${phoneNumber}`);
-      await new Promise(resolve => setTimeout(resolve, 30000)); // Delay of 30 seconds
+      await new Promise(resolve => setTimeout(resolve, 15000)); // Wait for 15 seconds before creating the next user
     } catch (error) {
       console.error("Error creating user:", error);
-      await new Promise(resolve => setTimeout(resolve, 30000)); // Delay of 30 seconds even after an error
+      await new Promise(resolve => setTimeout(resolve, 15000)); // Wait for 15 seconds before retrying
     }
   }
 }
 
 function sanitizeJSON(input) {
-    // Ensure the input starts with '{' and ends with '}'
-    if (!input.startsWith('{')) {
-        input = '{' + input;
-    }
-    if (!input.endsWith('}')) {
-        input = input + '}';
-    }
+  if (!input.startsWith('{')) {
+    input = '{' + input;
+  }
+  if (!input.endsWith('}')) {
+    input = input + '}';
+  }
 
-    // Count the number of opening '{' and closing '}' braces
-    let openBraces = (input.match(/{/g) || []).length;
-    let closeBraces = (input.match(/}/g) || []).length;
+  let openBraces = (input.match(/{/g) || []).length;
+  let closeBraces = (input.match(/}/g) || []).length;
 
-    // Remove extra closing braces
-    while (closeBraces > openBraces) {
-        input = input.substring(0, input.lastIndexOf('}')) + input.substring(input.lastIndexOf('}') + 1);
-        closeBraces--;
-    }
+  while (closeBraces > openBraces) {
+    input = input.substring(0, input.lastIndexOf('}')) + input.substring(input.lastIndexOf('}') + 1);
+    closeBraces--;
+  }
 
-    // Add missing closing braces
-    while (openBraces > closeBraces) {
-        input = input + '}';
-        closeBraces++;
-    }
+  while (openBraces > closeBraces) {
+    input = input + '}';
+    closeBraces++;
+  }
 
-    // Check if the JSON string is cut off
-    let lastQuote = input.lastIndexOf('"');
-    if (lastQuote % 2 === 0) {
-        // The JSON string is cut off, add a closing quote and braces
-        input = input.substring(0, lastQuote + 1) + '}';
-    }
+  // Check if the JSON string is cut off
+  let lastQuote = input.lastIndexOf('"');
+  if (lastQuote % 2 === 0) {
+    // The JSON string is cut off, add a closing quote and braces
+    input = input.substring(0, lastQuote + 1) + '}';
+  }
 
-    // Replace non-standard characters, such as emojis
-    let sanitized = input.replace(/[\u0800-\uFFFF]/g, "");
+  // Replace non-standard characters, such as emojis
+  let sanitized = input.replace(/[\u0800-\uFFFF]/g, "");
 
-    return sanitized;
+  return sanitized;
 }
 
 createUsers()

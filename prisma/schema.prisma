@@ -8,34 +8,58 @@ generator client {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  name        String
-  email       String?
-  phoneNumber String    @unique
-  isWhatsApp  Boolean   @default(false)
-  newsletter  Boolean   @default(false)
-  occupation  String?
-  dateOfBirth DateTime
-  pincode     String
-  state       String
-  city        String
-  haves       Have[]
-  wishes      Wish[]
+  id               Int               @id @default(autoincrement())
+  name             String
+  email            String?
+  phoneNumber      String            @unique
+  isWhatsApp       Boolean           @default(false)
+  newsletter       Boolean           @default(false)
+  occupation       String?
+  dateOfBirth      DateTime
+  pincode          String
+  state            String
+  city             String
+  haves            Have[]
+  wishes           Wish[]
+  requests         Request[]         @relation("userRequests")
+  receivedRequests Request[]         @relation("receivedRequests")
+  wishParticipants WishParticipant[]
 }
 
 model Have {
-  id          Int       @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   category    String
   description String
   userId      Int
-  user        User      @relation(fields: [userId], references: [id])
+  user        User   @relation(fields: [userId], references: [id])
 }
 
 model Wish {
-  id          Int       @id @default(autoincrement())
-  category    String
-  description String
-  skills      String[]
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id])
+  id           Int               @id @default(autoincrement())
+  category     String
+  description  String
+  skills       String[]
+  userId       Int
+  user         User              @relation(fields: [userId], references: [id])
+  requests     Request[]         @relation("wishRequests")
+  participants WishParticipant[]
+}
+
+model Request {
+  id         Int      @id @default(autoincrement())
+  wishId     Int
+  userId     Int
+  wish       Wish     @relation("wishRequests", fields: [wishId], references: [id], onDelete: Cascade, map: "Request_wishId_fkey")
+  user       User     @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade, map: "Request_userId_fkey1")
+  status     String   @default("pending") // pending, accepted, rejected
+  createdAt  DateTime @default(now())
+  receivedBy User     @relation("receivedRequests", fields: [userId], references: [id], map: "Request_userId_fkey2")
+}
+
+model WishParticipant {
+  id     Int  @id @default(autoincrement())
+  wishId Int
+  userId Int
+  wish   Wish @relation(fields: [wishId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
 }
