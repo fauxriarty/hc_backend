@@ -9,7 +9,7 @@ const {
 
 const router = express.Router();
 
-router.get("/", getAllWishes); 
+router.get("/", getAllWishes);
 router.post("/relevant", getRelevantWishes);
 router.post("/request/:wishId", requestToJoinWish);
 router.get("/requests", getRequestsForUserWishes);

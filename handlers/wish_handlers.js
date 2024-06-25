@@ -3,20 +3,19 @@ const { fetchRelevantWishes } = require("./gemini_handlers");
 
 const getAllWishes = async (req, res) => {
   try {
-    console.log("Fetching all wishes...");
     const wishes = await prisma.wish.findMany({
       include: {
         user: true,
         participants: {
           include: {
-            user: true
-          }
+            user: true,
+          },
         },
         requests: {
           include: {
-            user: true
-          }
-        }
+            user: true,
+          },
+        },
       },
     });
     res.json(wishes);
@@ -26,7 +25,6 @@ const getAllWishes = async (req, res) => {
   }
 };
 
-
 const getRelevantWishes = async (req, res) => {
   const { userHaves } = req.body;
   try {
@@ -35,14 +33,14 @@ const getRelevantWishes = async (req, res) => {
         user: true,
         participants: {
           include: {
-            user: true
-          }
+            user: true,
+          },
         },
         requests: {
           include: {
-            user: true
-          }
-        }
+            user: true,
+          },
+        },
       },
     });
 
@@ -68,8 +66,8 @@ const requestToJoinWish = async (req, res) => {
       data: {
         wishId: parseInt(wishId),
         userId: parseInt(userId),
-        status: 'pending'
-      }
+        status: 'pending',
+      },
     });
     res.json(newRequest);
   } catch (error) {
@@ -83,14 +81,14 @@ const getRequestsForUserWishes = async (req, res) => {
   try {
     const wishes = await prisma.wish.findMany({
       where: { userId: parseInt(userId) },
-      include: { 
-        requests: { 
-          include: { user: true } 
+      include: {
+        requests: {
+          include: { user: true },
         },
         participants: {
-          include: { user: true }
-        }
-      }
+          include: { user: true },
+        },
+      },
     });
     res.json(wishes);
   } catch (error) {
@@ -105,16 +103,18 @@ const respondToRequest = async (req, res) => {
   try {
     const updatedRequest = await prisma.request.update({
       where: { id: parseInt(requestId) },
-      data: { status }
+      data: { status },
     });
 
     if (status === 'accepted') {
-      const request = await prisma.request.findUnique({ where: { id: parseInt(requestId) } });
+      const request = await prisma.request.findUnique({
+        where: { id: parseInt(requestId) },
+      });
       await prisma.wishParticipant.create({
         data: {
           wishId: request.wishId,
           userId: request.userId,
-        }
+        },
       });
     }
 
