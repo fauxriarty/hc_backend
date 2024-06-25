@@ -86,7 +86,22 @@ async function fetchAllHaves() {
   }
 }
 
-// fn to handle the query and generate responses
+function cleanAndParseJSON(response) {
+  try {
+    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
+
+    if (!cleanResponse.endsWith(']')) {
+      const lastValidIndex = cleanResponse.lastIndexOf('}');
+      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
+    }
+
+    return JSON.parse(cleanResponse);
+  } catch (error) {
+    console.error("Error cleaning and parsing JSON:", error);
+    throw new Error("Invalid JSON response from Gemini API");
+  }
+}
+
 const getGeminiUsersByCategoryAndState = async (req, res) => {
   const { category, state, description } = req.body;
 
@@ -130,32 +145,27 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
       return;
     }
 
-    // add a delay to ensure complete response
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     console.log("Gemini API response:", aiResponse);
 
-    const parsedResponse = cleanAndParseJSON(aiResponse);
+    const parsedResponse = geminiClean(aiResponse);
 
-    // ensure response is an object and contains 'relevantUsers'
     if (!parsedResponse.relevantUsers || !Array.isArray(parsedResponse.relevantUsers)) {
       console.error("Invalid JSON structure: 'relevantUsers' key not found or is not an array.");
       res.status(500).json({ error: "Invalid JSON structure from Gemini API." });
       return;
     }
 
-    // ensure all relevance reasons are defined and sort by relevanceReason
     parsedResponse.relevantUsers = parsedResponse.relevantUsers.map(user => ({
       ...user,
       relevanceReason: user.relevanceReason ?? `This user, ${user.name}, has experience in ${user.description} which can be very useful in fulfilling the needs for "${description}".`
     }));
 
-    // sort users by relevanceReason, placing the most relevant user on top
     parsedResponse.relevantUsers.sort((a, b) => {
       return b.relevanceReason.localeCompare(a.relevanceReason);
     });
 
-    // filter suitable users and format the response, excluding irrelevant users
     const usersWithReasons = parsedResponse.relevantUsers
       .map(user => {
         const relevantUser = users.find(u => u.id === user.userId);
@@ -183,20 +193,21 @@ const getGeminiUsersByCategoryAndState = async (req, res) => {
   }
 };
 
-function cleanAndParseJSON(response) {
+function geminiClean(response) {
+  let parsedResponse;
   try {
-    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
-
-    if (!cleanResponse.endsWith(']')) {
-      const lastValidIndex = cleanResponse.lastIndexOf('}');
-      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
-    }
-
-    return JSON.parse(cleanResponse);
+    // Attempt to parse the response
+    parsedResponse = cleanAndParseJSON(response);
   } catch (error) {
-    console.error("Error cleaning and parsing JSON:", error);
-    throw new Error("Invalid JSON response from Gemini API");
+    console.error("Error parsing JSON:", error);
+    throw new Error("Failed to parse JSON response.");
   }
+
+  // check if the parsedResponse already has the 'relevantUsers' key and it is an array
+  if (!Array.isArray(parsedResponse.relevantUsers)) {
+    parsedResponse = { relevantUsers: Array.isArray(parsedResponse) ? parsedResponse : [] };
+  }
+  return parsedResponse;
 }
 
 const fetchRelevantWishes = async (userHaves, allWishes) => {

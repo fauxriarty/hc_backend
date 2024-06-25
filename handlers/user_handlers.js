@@ -172,17 +172,24 @@ const removeUserHave = async (req, res) => {
   try {
     const { id, haveId } = req.params;
 
-    const user = await prisma.user.update({
+    const userHave = await prisma.have.findUnique({
+      where: { id: parseInt(haveId) },
+    });
+
+    if (!userHave) {
+      return res.status(404).json({ error: "Have not found" });
+    }
+
+    await prisma.have.delete({
+      where: { id: parseInt(haveId) },
+    });
+
+    const updatedUser = await prisma.user.findUnique({
       where: { id: parseInt(id) },
-      data: {
-        haves: {
-          delete: [{ id: parseInt(haveId) }],
-        },
-      },
       include: { haves: true },
     });
 
-    res.json(user);
+    res.json(updatedUser);
   } catch (error) {
     console.error("Error removing user have:", error);
     res.status(500).json({ error: error.message });
@@ -193,23 +200,29 @@ const removeUserWish = async (req, res) => {
   try {
     const { id, wishId } = req.params;
 
-    const user = await prisma.user.update({
+    const userWish = await prisma.wish.findUnique({
+      where: { id: parseInt(wishId) },
+    });
+
+    if (!userWish) {
+      return res.status(404).json({ error: "Wish not found" });
+    }
+
+    await prisma.wish.delete({
+      where: { id: parseInt(wishId) },
+    });
+
+    const updatedUser = await prisma.user.findUnique({
       where: { id: parseInt(id) },
-      data: {
-        wishes: {
-          delete: [{ id: parseInt(wishId) }],
-        },
-      },
       include: { wishes: true },
     });
 
-    res.json(user);
+    res.json(updatedUser);
   } catch (error) {
     console.error("Error removing user wish:", error);
     res.status(500).json({ error: error.message });
   }
 };
-
 
 const updateWishSkills = async (req, res) => {
   const { userId, wishId } = req.params;

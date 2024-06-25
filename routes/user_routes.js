@@ -16,12 +16,11 @@ const router = express.Router();
 router.post("/", createUser);
 router.post("/login", loginUser);
 router.get("/", getUsers);
-router.get("/users/:id", getUser);
+router.get("/:id", getUser); 
 router.put("/:id/haves", updateUserHaves);
 router.put("/:id/wishes", updateUserWishes);
 router.delete("/:id/haves/:haveId", removeUserHave);
 router.delete("/:id/wishes/:wishId", removeUserWish);
-router.put("/:userId/wishes/:wishId/skills", updateWishSkills);
-
+router.put("/:id/wishes/:wishId/skills", updateWishSkills);
 
 module.exports = router;

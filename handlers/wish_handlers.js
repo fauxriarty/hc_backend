@@ -3,6 +3,7 @@ const { fetchRelevantWishes } = require("./gemini_handlers");
 
 const getAllWishes = async (req, res) => {
   try {
+    console.log("Fetching all wishes...");
     const wishes = await prisma.wish.findMany({
       include: {
         user: true,
@@ -25,8 +26,9 @@ const getAllWishes = async (req, res) => {
   }
 };
 
+
 const getRelevantWishes = async (req, res) => {
-  const { userId, userHaves } = req.body;
+  const { userHaves } = req.body;
   try {
     const allWishes = await prisma.wish.findMany({
       include: {
