@@ -264,6 +264,40 @@ const updateWishSkills = async (req, res) => {
 };
 
 
+const getUserWishes = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+      include: { wishes: true },
+    });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user.wishes);
+  } catch (error) {
+    console.error("Error fetching user wishes:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getUserHaves = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+      include: { haves: true },
+    });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user.haves);
+  } catch (error) {
+    console.error("Error fetching user haves:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getUsers,
   getUser,
@@ -273,5 +307,7 @@ module.exports = {
   updateUserWishes,
   removeUserHave,
   removeUserWish,
+  getUserWishes,
+  getUserHaves,
   updateWishSkills,  
 };

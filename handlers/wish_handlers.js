@@ -8,10 +8,19 @@ const getAllWishes = async (req, res) => {
         user: true,
         participants: {
           include: {
-            user: true,
+            user: {
+              include: {
+                haves: true,
+              },
+            },
           },
         },
         requests: {
+          include: {
+            user: true,
+          },
+        },
+        invites: {
           include: {
             user: true,
           },
@@ -45,13 +54,7 @@ const getRelevantWishes = async (req, res) => {
     });
 
     const relevantWishes = await fetchRelevantWishes(userHaves, allWishes);
-    if (relevantWishes.length === 0) {
-      console.log("No relevant wishes found. Showing all wishes.");
-      res.json(allWishes);
-    } else {
-      console.log("Relevant wishes found. Showing relevant wishes.");
-      res.json(relevantWishes);
-    }
+    res.json(relevantWishes.length > 0 ? relevantWishes : allWishes);
   } catch (error) {
     console.error("Error fetching relevant wishes:", error);
     res.status(500).json({ error: error.message });
@@ -86,6 +89,9 @@ const getRequestsForUserWishes = async (req, res) => {
           include: { user: true },
         },
         participants: {
+          include: { user: true },
+        },
+        invites: {
           include: { user: true },
         },
       },
@@ -125,10 +131,59 @@ const respondToRequest = async (req, res) => {
   }
 };
 
+const sendInvite = async (req, res) => {
+  const { wishId } = req.params;
+  const { userId, senderId } = req.body;
+  try {
+    const invite = await prisma.invite.create({
+      data: {
+        wishId: parseInt(wishId),
+        userId: parseInt(userId),
+        status: 'pending',
+        senderId: parseInt(senderId),
+      },
+    });
+    res.json(invite);
+  } catch (error) {
+    console.error("Error sending invite:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const handleInviteResponse = async (req, res) => {
+  const { inviteId } = req.params;
+  const { status } = req.body;
+  try {
+    const updatedInvite = await prisma.invite.update({
+      where: { id: parseInt(inviteId) },
+      data: { status },
+    });
+
+    if (status === 'accepted') {
+      const invite = await prisma.invite.findUnique({
+        where: { id: parseInt(inviteId) },
+      });
+      await prisma.wishParticipant.create({
+        data: {
+          wishId: invite.wishId,
+          userId: invite.userId,
+        },
+      });
+    }
+
+    res.json(updatedInvite);
+  } catch (error) {
+    console.error("Error updating invite:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllWishes,
   getRelevantWishes,
   requestToJoinWish,
+  sendInvite,
   getRequestsForUserWishes,
+  handleInviteResponse,
   respondToRequest,
 };

@@ -11,7 +11,7 @@ const parameters = {
   top_k: 30,
 };
 
-// fn to query the gemini
+// Function to query the Gemini API
 async function queryGeminiAPI(prompt) {
   try {
     console.log("Connecting to Gemini API...");
@@ -27,7 +27,7 @@ async function queryGeminiAPI(prompt) {
   }
 }
 
-// fn to fetch users from the database
+// Function to fetch users from the database
 async function fetchUsersFromDatabase(state, category, description) {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -58,7 +58,7 @@ async function fetchUsersFromDatabase(state, category, description) {
   }
 }
 
-// fn to fetch all 'Have' entries if no relevant user found within given state and category
+// Function to fetch all 'Have' entries if no relevant user found within given state and category
 async function fetchAllHaves() {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -101,6 +101,71 @@ function cleanAndParseJSON(response) {
     throw new Error("Invalid JSON response from Gemini API");
   }
 }
+
+function cleanAndParseHavesJSON(response) {
+  try {
+    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
+
+    if (!cleanResponse.endsWith(']')) {
+      const lastValidIndex = cleanResponse.lastIndexOf('}');
+      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
+    }
+
+    if (!cleanResponse.startsWith('[')) {
+      cleanResponse = '[' + cleanResponse;
+    }
+
+    cleanResponse = cleanResponse.slice(0, cleanResponse.lastIndexOf('}') + 1) + ']';
+
+    return JSON.parse(cleanResponse);
+  } catch (error) {
+    console.error("Error cleaning and parsing Haves JSON:", error);
+    throw new Error("Invalid JSON response from Gemini API");
+  }
+}
+
+const fetchRelevantHaves = async (userWishes, allHaves) => {
+  try {
+    const aiPrompt = `Evaluate the user's wishes against the haves descriptions and determine strict relevance.
+                      User wishes: ${JSON.stringify(userWishes)}.
+                      Haves data: ${JSON.stringify(allHaves)}.
+                      Consider only directly related fields and provide clear, specific explanations for relevance.
+                      Filter out any haves that are not directly related to the user's wishes or are too broad or stretched.
+                      Provide the response in valid JSON format with a structure like: [{"haveId": <haveId>, "description": "<description>", "relevance": "<reason>"}].
+                      Ensure that the relevance reasons are directly related to the user's wishes and not a stretch.`;
+
+    let aiResponse;
+    try {
+      aiResponse = await queryGeminiAPI(aiPrompt);
+    } catch (error) {
+      console.error("Error querying Gemini API:", error);
+      throw new Error("Error querying Gemini API");
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const parsedResponse = cleanAndParseHavesJSON(aiResponse);
+
+    if (!Array.isArray(parsedResponse)) {
+      console.error("Invalid JSON structure: expected an array.");
+      throw new Error("Invalid JSON structure from Gemini API");
+    }
+
+    const relevantHaves = parsedResponse
+      .filter(have => have.relevance && have.relevance.toLowerCase().includes('relevant') && !have.relevance.toLowerCase().includes('stretch'))
+      .map(have => {
+        const matchedHave = allHaves.find(h => h.id === have.haveId);
+        return matchedHave ? { ...matchedHave, relevance: have.relevance } : null;
+      })
+      .filter(Boolean);
+
+    console.log("Relevant haves:", relevantHaves.map(have => have.description));
+    return relevantHaves.length > 0 ? relevantHaves : [];
+  } catch (error) {
+    console.error("Error fetching relevant haves:", error);
+    throw new Error(error.message);
+  }
+};
 
 const getGeminiUsersByCategoryAndState = async (req, res) => {
   const { category, state, description } = req.body;
@@ -255,5 +320,6 @@ const fetchRelevantWishes = async (userHaves, allWishes) => {
 
 module.exports = {
   getGeminiUsersByCategoryAndState,
+  fetchRelevantHaves,
   fetchRelevantWishes,
 };

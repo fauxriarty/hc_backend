@@ -24,6 +24,8 @@ model User {
   requests         Request[]         @relation("userRequests")
   receivedRequests Request[]         @relation("receivedRequests")
   wishParticipants WishParticipant[]
+  sentInvites      Invite[]          @relation("sentInvites")
+  receivedInvites  Invite[]          @relation("receivedInvites")
 }
 
 model Have {
@@ -43,6 +45,7 @@ model Wish {
   user         User              @relation(fields: [userId], references: [id])
   requests     Request[]         @relation("wishRequests")
   participants WishParticipant[]
+  invites      Invite[]          @relation("wishInvites")
 }
 
 model Request {
@@ -62,4 +65,14 @@ model WishParticipant {
   userId Int
   wish   Wish @relation(fields: [wishId], references: [id])
   user   User @relation(fields: [userId], references: [id])
+}
+
+model Invite {
+  id     Int    @id @default(autoincrement())
+  wishId Int
+  userId Int
+  status String @default("pending")
+  wish   Wish   @relation("wishInvites", fields: [wishId], references: [id])
+  user   User   @relation("receivedInvites", fields: [userId], references: [id], map: "Invite_userId_fkey1")
+  sender User   @relation("sentInvites", fields: [userId], references: [id], map: "Invite_userId_fkey2")
 }
