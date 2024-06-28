@@ -5,13 +5,13 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const parameters = {
-  temperature: 0.6,
+  temperature: 0.55,
   max_output_tokens: 4096,
   top_p: 0.82,
   top_k: 30,
 };
 
-// Function to query the Gemini API
+// fn to query the Gemini API
 async function queryGeminiAPI(prompt) {
   try {
     console.log("Connecting to Gemini API...");
@@ -27,7 +27,6 @@ async function queryGeminiAPI(prompt) {
   }
 }
 
-// Function to fetch users from the database
 async function fetchUsersFromDatabase(state, category, description) {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -58,7 +57,7 @@ async function fetchUsersFromDatabase(state, category, description) {
   }
 }
 
-// Function to fetch all 'Have' entries if no relevant user found within given state and category
+// fn to fetch all  haves if no relevant user found within given state and category
 async function fetchAllHaves() {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -86,22 +85,6 @@ async function fetchAllHaves() {
   }
 }
 
-function cleanAndParseJSON(response) {
-  try {
-    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
-
-    if (!cleanResponse.endsWith(']')) {
-      const lastValidIndex = cleanResponse.lastIndexOf('}');
-      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
-    }
-
-    return JSON.parse(cleanResponse);
-  } catch (error) {
-    console.error("Error cleaning and parsing JSON:", error);
-    throw new Error("Invalid JSON response from Gemini API");
-  }
-}
-
 function cleanAndParseHavesJSON(response) {
   try {
     let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
@@ -126,7 +109,7 @@ function cleanAndParseHavesJSON(response) {
 
 const fetchRelevantHaves = async (userWishes, allHaves) => {
   try {
-    const aiPrompt = `Evaluate the user's wishes against the haves descriptions and determine strict relevance.
+    const aiPrompt = `Evaluate each of the user's wishes against all the haves descriptions and determine strict relevance.
                       User wishes: ${JSON.stringify(userWishes)}.
                       Haves data: ${JSON.stringify(allHaves)}.
                       Consider only directly related fields and provide clear, specific explanations for relevance.
@@ -275,13 +258,29 @@ function geminiClean(response) {
   return parsedResponse;
 }
 
+function cleanAndParseJSON(response) {
+  try {
+    let cleanResponse = response.replace(/```json|```|\n|[^\x20-\x7E]/g, '').trim();
+
+    if (!cleanResponse.endsWith(']')) {
+      const lastValidIndex = cleanResponse.lastIndexOf('}');
+      cleanResponse = cleanResponse.slice(0, lastValidIndex + 1) + ']';
+    }
+
+    return JSON.parse(cleanResponse);
+  } catch (error) {
+    console.error("Error cleaning and parsing JSON:", error);
+    throw new Error("Invalid JSON response from Gemini API");
+  }
+}
+
 const fetchRelevantWishes = async (userHaves, allWishes) => {
   try {
-    const aiPrompt = `Evaluate the user's skills against the wishes descriptions and determine strict relevance. 
-                      User skills: ${JSON.stringify(userHaves)}. 
+    const aiPrompt = `Evaluate each of the user's skills/haves descriptions, against all the wishes' descriptions and determine strict relevance.
+                      User skills/haves: ${JSON.stringify(userHaves)}. 
                       Wishes data: ${JSON.stringify(allWishes)}. 
-                      Consider only directly related fields and provide clear, specific explanations for relevance. 
-                      Filter out any wishes that are not directly related to the user's skills or are too broad or stretched. 
+                      Consider ONLY directly synonymous and related fields and provide clear, specific unique explanations for relevance. 
+                      Filter out any wishes that are not directly related to the user's "have"s or are too broad or stretched.
                       Provide the response in valid JSON format with a structure like: [{"wishId": <wishId>, "title": "<title>", "relevance": "<reason>"}]. 
                       Ensure that the relevance reasons are directly related to the user's skills and not a stretch.`;
 
