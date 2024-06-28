@@ -23,6 +23,7 @@ const getAllWishes = async (req, res) => {
         invites: {
           include: {
             user: true,
+            sender: true,
           },
         },
       },
@@ -92,41 +93,13 @@ const getRequestsForUserWishes = async (req, res) => {
           include: { user: true },
         },
         invites: {
-          include: { user: true },
+          include: { user: true, sender: true },
         },
       },
     });
     res.json(wishes);
   } catch (error) {
     console.error("Error fetching requests:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const respondToRequest = async (req, res) => {
-  const { requestId } = req.params;
-  const { status } = req.body;
-  try {
-    const updatedRequest = await prisma.request.update({
-      where: { id: parseInt(requestId) },
-      data: { status },
-    });
-
-    if (status === 'accepted') {
-      const request = await prisma.request.findUnique({
-        where: { id: parseInt(requestId) },
-      });
-      await prisma.wishParticipant.create({
-        data: {
-          wishId: request.wishId,
-          userId: request.userId,
-        },
-      });
-    }
-
-    res.json(updatedRequest);
-  } catch (error) {
-    console.error("Error updating request:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -150,30 +123,134 @@ const sendInvite = async (req, res) => {
   }
 };
 
+const respondToRequest = async (req, res) => {
+  const { requestId } = req.params;
+  const { status } = req.body;
+  try {
+    if (status === 'rejected') {
+      await prisma.request.delete({
+        where: { id: parseInt(requestId) }
+      });
+      res.json({ message: 'Request rejected and deleted.' });
+    } else {
+      const updatedRequest = await prisma.request.update({
+        where: { id: parseInt(requestId) },
+        data: { status },
+      });
+
+      if (status === 'accepted') {
+        const request = await prisma.request.findUnique({
+          where: { id: parseInt(requestId) },
+        });
+        await prisma.wishParticipant.create({
+          data: {
+            wishId: request.wishId,
+            userId: request.userId,
+          },
+        });
+      }
+
+      res.json(updatedRequest);
+    }
+  } catch (error) {
+    console.error("Error updating request:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const handleInviteResponse = async (req, res) => {
   const { inviteId } = req.params;
   const { status } = req.body;
   try {
-    const updatedInvite = await prisma.invite.update({
-      where: { id: parseInt(inviteId) },
-      data: { status },
-    });
-
-    if (status === 'accepted') {
-      const invite = await prisma.invite.findUnique({
+    if (status === 'rejected') {
+      await prisma.invite.delete({
+        where: { id: parseInt(inviteId) }
+      });
+      res.json({ message: 'Invite rejected and deleted.' });
+    } else {
+      const updatedInvite = await prisma.invite.update({
         where: { id: parseInt(inviteId) },
+        data: { status },
       });
-      await prisma.wishParticipant.create({
-        data: {
-          wishId: invite.wishId,
-          userId: invite.userId,
-        },
-      });
-    }
 
-    res.json(updatedInvite);
+      if (status === 'accepted') {
+        const invite = await prisma.invite.findUnique({
+          where: { id: parseInt(inviteId) },
+        });
+        await prisma.wishParticipant.create({
+          data: {
+            wishId: invite.wishId,
+            userId: invite.userId,
+          },
+        });
+      }
+
+      res.json(updatedInvite);
+    }
   } catch (error) {
     console.error("Error updating invite:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getInvitesForUser = async (req, res) => {
+  const { userId } = req.query;
+  try {
+    const invites = await prisma.invite.findMany({
+      where: {
+        userId: parseInt(userId),
+        status: 'pending',
+      },
+      include: {
+        wish: {
+          include: {
+            user: true,
+          },
+        },
+        sender: true,
+      },
+    });
+    res.json(invites);
+  } catch (error) {
+    console.error("Error fetching invites:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getActiveWishesForUser = async (req, res) => {
+  const { userId } = req.query;
+  try {
+    const wishes = await prisma.wish.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: parseInt(userId)
+          }
+        }
+      },
+      include: {
+        user: true,
+        participants: {
+          include: {
+            user: true,
+          },
+        },
+        requests: {
+          include: {
+            user: true,
+          },
+        },
+        invites: {
+          include: {
+            user: true,
+            sender: true,
+          },
+        },
+      },
+    });
+    res.json(wishes);
+  } catch (error) {
+    console.error("Error fetching active wishes:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -186,4 +263,6 @@ module.exports = {
   getRequestsForUserWishes,
   handleInviteResponse,
   respondToRequest,
+  getInvitesForUser,
+  getActiveWishesForUser,
 };

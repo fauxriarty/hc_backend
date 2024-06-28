@@ -6,7 +6,9 @@ const {
   getRequestsForUserWishes,
   respondToRequest,
   sendInvite,
+  getActiveWishesForUser,
   handleInviteResponse,
+  getInvitesForUser,
 } = require("../handlers/wish_handlers");
 
 const router = express.Router();
@@ -18,5 +20,8 @@ router.get("/requests", getRequestsForUserWishes);
 router.post("/requests/:requestId/respond", respondToRequest);
 router.post("/:wishId/invite", sendInvite);
 router.post("/invites/:inviteId/respond", handleInviteResponse);
+router.get("/invites", getInvitesForUser);
+router.get("/active", getActiveWishesForUser);
+
 
 module.exports = router;

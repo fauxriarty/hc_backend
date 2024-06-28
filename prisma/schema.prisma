@@ -22,7 +22,6 @@ model User {
   haves            Have[]
   wishes           Wish[]
   requests         Request[]         @relation("userRequests")
-  receivedRequests Request[]         @relation("receivedRequests")
   wishParticipants WishParticipant[]
   sentInvites      Invite[]          @relation("sentInvites")
   receivedInvites  Invite[]          @relation("receivedInvites")
@@ -45,18 +44,17 @@ model Wish {
   user         User              @relation(fields: [userId], references: [id])
   requests     Request[]         @relation("wishRequests")
   participants WishParticipant[]
-  invites      Invite[]          @relation("wishInvites")
+  invites      Invite[]
 }
 
 model Request {
   id         Int      @id @default(autoincrement())
   wishId     Int
   userId     Int
-  wish       Wish     @relation("wishRequests", fields: [wishId], references: [id], onDelete: Cascade, map: "Request_wishId_fkey")
-  user       User     @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade, map: "Request_userId_fkey1")
+  wish       Wish     @relation("wishRequests", fields: [wishId], references: [id], onDelete: Cascade)
+  user       User     @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
   status     String   @default("pending") // pending, accepted, rejected
   createdAt  DateTime @default(now())
-  receivedBy User     @relation("receivedRequests", fields: [userId], references: [id], map: "Request_userId_fkey2")
 }
 
 model WishParticipant {
@@ -68,11 +66,12 @@ model WishParticipant {
 }
 
 model Invite {
-  id     Int    @id @default(autoincrement())
-  wishId Int
-  userId Int
-  status String @default("pending")
-  wish   Wish   @relation("wishInvites", fields: [wishId], references: [id])
-  user   User   @relation("receivedInvites", fields: [userId], references: [id], map: "Invite_userId_fkey1")
-  sender User   @relation("sentInvites", fields: [userId], references: [id], map: "Invite_userId_fkey2")
+  id       Int    @id @default(autoincrement())
+  wishId   Int
+  userId   Int
+  senderId Int
+  status   String @default("pending")
+  wish     Wish   @relation(fields: [wishId], references: [id])
+  user     User   @relation("receivedInvites", fields: [userId], references: [id])
+  sender   User   @relation("sentInvites", fields: [senderId], references: [id])
 }
